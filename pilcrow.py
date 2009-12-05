@@ -2,6 +2,9 @@
 """
 Static site generator.
 
+Copyright (c) 2009 Liam Cooke
+Licensed under the terms of the MIT license.
+
 """
 import codecs
 import os
@@ -101,6 +104,8 @@ class ContentPage(Page):
                 'id': join_url(self.date.year, id),
                 'template': self.template or 'entry',
                 'month_name': self.date.strftime('%B'),
+                'prevpost': None,
+                'nextpost': None,
             })
             if 'posted' not in self:
                 self['posted'] = self.date
@@ -197,7 +202,7 @@ def build(path):
         posts = sorted(posts)
         pages.add(ArchivePage(posts, year))
         for prevpost, post, nextpost in neighbours(posts):
-            post['prev'], post['next'] = prevpost, nextpost
+            post['prevpost'], post['nextpost'] = prevpost, nextpost
 
     def select(limit=None, dated=True, chrono=False):
         results = pages.all
