@@ -8,12 +8,12 @@ import os
 import re
 import shutil
 import sys
-import yaml
 from collections import defaultdict
 from datetime import datetime
 from itertools import izip
 
 import dateutil.parser
+import yaml
 from mako.exceptions import MakoException
 from mako.lookup import TemplateLookup
 from markdown import markdown
