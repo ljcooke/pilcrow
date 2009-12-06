@@ -12,8 +12,11 @@ import re
 import shutil
 import sys
 from collections import defaultdict
+from commands import getstatusoutput
 from datetime import datetime
 from itertools import izip
+from optparse import OptionParser
+from os import path
 
 import dateutil.parser
 import yaml
@@ -21,17 +24,27 @@ from mako.exceptions import MakoException
 from mako.lookup import TemplateLookup
 from markdown import markdown
 
-
 CONTENT_EXTS = ('.text', '.markdown', '.mkdn', '.md')
 CONFIG_FILE = 'site.yml'
 DEPLOY_DIR = 'deploy'
 CONTENT_DIR = 'content'
-STATIC_DIR = 'static'
+FILES_DIR = 'files'
 TEMPLATES_DIR = 'templates'
 REQUIRED_FILES = (CONFIG_FILE, CONTENT_DIR, TEMPLATES_DIR)
 
+FILES_EXCLUDE = re.compile(r'(^\.|~$)')
+FILES_INCLUDE = re.compile(r'^\.htaccess$')
+FILES_RENAME = {'.less': '.css'}
+FILES_ACTION = {
+    '.less': lambda s, d: run_or_die('lessc %s %s' % (s, d)),
+}
+
 CONTEXT = {}
 
+alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
+filemtime = lambda f: datetime.fromtimestamp(os.fstat(f.fileno()).st_mtime)
+identity = lambda o: o
+is_str = lambda o: isinstance(o, basestring)
 
 def die(*msg):
     msg = ' '.join(str(m) for m in msg) + '\n'
@@ -39,11 +52,9 @@ def die(*msg):
     sys.stderr.write(re.sub('^(.*?:)', yellow % r'\1', msg))
     sys.exit(1)
 
-alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
-identity = lambda o: o
-is_str = lambda o: isinstance(o, basestring)
-mtime = lambda f: datetime.fromtimestamp(os.fstat(f.fileno()).st_mtime)
-pluralize = lambda n, s: '%d %s%s' % (n, s, n != 1 and 's' or '')
+def run_or_die(cmd):
+    status, output = getstatusoutput(cmd)
+    if status > 0: die(output)
 
 norm_time = lambda s: s and dateutil.parser.parse(str(s), fuzzy=True) or None
 def norm_tags(obj):
@@ -53,13 +64,16 @@ def norm_tags(obj):
 def join_url(*parts):
     return '/'.join(str(s) for s in parts if s)
 
+def mkdir(d):
+    try: os.mkdir(d)
+    except OSError: pass  # ignore errors if directory exists
+
 def neighbours(iterable):
     "1..4 -> (None,1,2), (1,2,3), (2,3,4), (3,4,None)"
     L = list(iterable)
     a = [None] + L[:-1]
     b = L[1:] + [None]
     return izip(a, L, b)
-
 
 class Page(dict):
     _sortkey = lambda self: '%s %s' % (self.date or '0000-00-00', self.id)
@@ -76,23 +90,25 @@ class Page(dict):
         self.update(kwargs)
 
     def __getattr__(self, name):
+        if name == 'id' and self[name] == 'index':
+            return ''
         return self[name]
 
     @property
     def url(self):
         return CONTEXT['root'] + self.id
 
-
 class ContentPage(Page):
     NORM = {
         'date': norm_time, 'posted': norm_time, 'started': norm_time,
         'tags': norm_tags, 'category': norm_tags,
+        'summary': markdown,
     }
     SUMMARY = re.compile('(<summary>)(.*?)(</summary>)', re.DOTALL)
 
     def __init__(self, fp):
-        id = os.path.splitext(os.path.basename(fp.name))[0]
-        Page.__init__(self, id, modified=mtime(fp))
+        id = path.splitext(path.basename(fp.name))[0]
+        Page.__init__(self, id, modified=filemtime(fp))
         data = fp.read().split('\n\n', 1)
         head = yaml.load(data.pop(0))
         body = data and data.pop() or ''
@@ -110,13 +126,11 @@ class ContentPage(Page):
             if 'posted' not in self:
                 self['posted'] = self.date
 
-        # extract a summary from the <summary> pseudo-tag, if any
         def _summary(m):
             summary = m.group(2).strip()
             self['summary'] = markdown(summary)
             return summary
         self['content'] = markdown(self.SUMMARY.sub(_summary, body).strip())
-
 
 class ArchivePage(Page):
 
@@ -127,7 +141,6 @@ class ArchivePage(Page):
             'template': 'archive_%s' % (month and 'month' or 'year'),
             'title': month and datetime(year, month, 1).strftime('%B %Y') or year,
         })
-
 
 class PageManager:
 
@@ -140,7 +153,6 @@ class PageManager:
             die('duplicate page id: %s' % page.id)
         self.pages[page.id] = page
 
-    @property
     def all(self):
         return self.pages.values()
 
@@ -155,66 +167,80 @@ class PageManager:
                 context['head_title'] = context['title_format'] % context
             try:
                 html = template.render_unicode(**context).strip()
-                with open(os.path.join(DEPLOY_DIR, page.id) + '.html', 'w') as f:
+                with open(path.join(DEPLOY_DIR, page['id']) + '.html', 'w') as f:
                     f.write(html.encode('utf-8'))
-            except NameError as err:
+            except NameError:
                 die('template error: undefined variable in', template.filename)
 
+def build(site_path, clean=False):
+    try: os.chdir(site_path)
+    except OSError: die('invalid path:', site_path)
 
-def build(path):
-    try: os.chdir(path)
-    except OSError: die('invalid path:', path)
+    base_path = path.realpath(os.curdir)
+    deploy_path = path.realpath(DEPLOY_DIR)
 
-    if any(f for f in REQUIRED_FILES if not os.path.exists(f)):
+    if any(f for f in REQUIRED_FILES if not path.exists(f)):
         die('required files/folders: %s' % ', '.join(REQUIRED_FILES))
 
-    # read config
     global CONTEXT
     with open(CONFIG_FILE) as f:
         CONTEXT = yaml.load(f)
-    CONTEXT.update({
-        'domain': CONTEXT['domain'].rstrip('/'),
-        'root': '/' + CONTEXT.get('root', '').lstrip('/'),
-        'head_title': CONTEXT.get('site_title', ''),
-        'default_template': CONTEXT.get('default_template', 'page'),
-    })
 
-    # clean /deploy and copy static files into it
-    shutil.rmtree(DEPLOY_DIR, ignore_errors=True)
-    if os.path.exists(STATIC_DIR):
-        shutil.copytree(STATIC_DIR, DEPLOY_DIR)
-    else:
-        os.mkdir(DEPLOY_DIR)
+    if clean:
+        shutil.rmtree(deploy_path, ignore_errors=True)
+        mkdir(deploy_path)
 
-    # parse content files
+    os.chdir(FILES_DIR)
+    for root, _, files in os.walk(os.curdir):
+        mkdir(path.normpath(path.join(deploy_path, root)))
+        for fname in files:
+            if FILES_EXCLUDE.match(fname) and not FILES_INCLUDE.match(fname):
+                continue
+            src, dest = path.join(root, fname), path.join(deploy_path, root, fname)
+            ext = path.splitext(fname)[1]
+            if ext in FILES_RENAME:
+                dest = path.splitext(dest)[0] + FILES_RENAME[ext]
+            if path.isfile(dest) and path.getmtime(src) <= path.getmtime(dest):
+                continue
+            FILES_ACTION.get(ext, shutil.copy2)(src, dest)
+            print '%s => %s' % (path.relpath(src, base_path), path.relpath(dest, base_path))
+    os.chdir(base_path)
+
     pages, years = PageManager(), defaultdict(list)
     for root, _, files in os.walk(CONTENT_DIR):
-        for file in filter(lambda f: os.path.splitext(f)[1] in CONTENT_EXTS, files):
-            with codecs.open(os.path.join(root, file), 'r', encoding='utf-8') as fp:
+        for file in filter(lambda f: path.splitext(f)[1] in CONTENT_EXTS, files):
+            with codecs.open(path.join(root, file), 'r', encoding='utf-8') as fp:
                 page = ContentPage(fp)
                 pages.add(page)
                 if page.date:
                     years[page.date.year].append(page)
 
-    # prepare archives
     for year, posts in sorted(years.items()):
-        os.mkdir(os.path.join(DEPLOY_DIR, str(year)))
+        mkdir(path.join(DEPLOY_DIR, str(year)))
         posts = sorted(posts)
         pages.add(ArchivePage(posts, year))
         for prevpost, post, nextpost in neighbours(posts):
             post['prevpost'], post['nextpost'] = prevpost, nextpost
 
     def select(limit=None, dated=True, chrono=False):
-        results = pages.all
+        results = pages.all()
         if chrono: results.reverse()
         if dated: results = [page for page in results if page.date]
         return tuple(results)[:limit]
-    CONTEXT['pages'] = select
 
-    try:
-        pages.render()
-    except MakoException as err:
-        die('template error:', err)
+    CONTEXT.update({
+        'pages': select,
+        'domain': CONTEXT['domain'].rstrip('/'),
+        'root': '/' + CONTEXT.get('root', '').lstrip('/'),
+        'head_title': CONTEXT.get('site_title', ''),
+        'default_template': CONTEXT.get('default_template', 'page'),
+    })
+
+    try: pages.render()
+    except MakoException as e: die('template error:', e)
 
 if __name__ == '__main__':
-    build(sys.argv[1:] and sys.argv[1] or '.')
+    parser = OptionParser()
+    parser.add_option('-x', '--clean', action='store_true', default=False)
+    options, args = parser.parse_args()
+    build(args and args[0] or '.', clean=options.clean)
