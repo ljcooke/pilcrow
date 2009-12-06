@@ -224,7 +224,7 @@ def build(site_path, clean=False):
 
     def select(limit=None, dated=True, chrono=False):
         results = pages.all()
-        if chrono: results.reverse()
+        if not chrono: results.reverse()
         if dated: results = [page for page in results if page.date]
         return tuple(results)[:limit]
 
