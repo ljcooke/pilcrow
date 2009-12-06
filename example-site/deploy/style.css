@@ -1,0 +1,22 @@
+body {
+  background: #eeeeee;
+  color: #000000;
+  font: 1em/1.5 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  margin: 3em;
+}
+#page {
+  background: #ffffff;
+  border: 4px double #999999;
+  max-width: 36em;
+  padding: 2em 3em;
+}
+#footer {
+  border-top: 3px solid #cccccc;
+  margin-top: 3em;
+}
+#footer hr { display: none; }
+p.time {
+  color: #666666;
+  font-size: 0.9em;
+  text-transform: uppercase;
+}

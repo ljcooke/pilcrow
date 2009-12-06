@@ -1,0 +1,23 @@
+<%inherit file="_base.html"/>
+
+% if title:
+<h1>${title}</h1>
+% endif
+
+<p class="time" title="${date.isoformat()}">
+  ${date.strftime('%e %B %Y')}
+</p>
+
+${content}
+
+
+% if prevpost or nextpost:
+<p>
+  % if prevpost:
+  <a href="${prevpost.url}">&larr; ${prevpost.title or 'Untitled'}</a>
+  % endif
+  % if nextpost:
+  <a href="${nextpost.url}">${nextpost.title or 'Untitled'} &rarr;</a>
+  % endif
+</p>
+% endif

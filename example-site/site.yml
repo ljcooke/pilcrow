@@ -1,0 +1,4 @@
+site_title: Example Site
+title_format: "%(site_title)s: %(title)s"
+root: /
+domain: "http://localhost/"

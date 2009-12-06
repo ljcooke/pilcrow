@@ -1,0 +1,12 @@
+<%inherit file="_base.html"/>
+
+<ul>
+  % for page in pages(5):
+    <li>
+      <a href="${page.url}">${page.title or 'Untitled'}</a>
+      (${page.date.strftime('%Y-%b-%d')})
+    </li>
+  % endfor
+</ul>
+
+${content}

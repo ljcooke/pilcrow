@@ -1,0 +1,28 @@
+@background: #fff;
+@text: #000;
+
+body {
+    background: @background - #111;
+    color: @text;
+    font: 1em/1.5 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 3em;
+}
+
+#page {
+    background: @background;
+    border: 4px double (@background - #666);
+    max-width: 36em;
+    padding: 2em 3em;
+}
+
+#footer {
+    border-top: 3px solid (@background - #333);
+    margin-top: 3em;
+    hr { display: none; }
+}
+
+p.time {
+    color: #666;
+    font-size: 0.9em;
+    text-transform: uppercase;
+}

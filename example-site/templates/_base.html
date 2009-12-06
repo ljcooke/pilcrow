@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${head_title}</title>
+  <link rel="stylesheet" href="${root}style.css">
+</head>
+<body>
+  <div id="page">
+
+    <div id="header">
+      ${self.header()}
+    </div>
+
+    <div id="body">
+      ${next.body()}
+    </div>
+
+    <div id="footer">
+      ${self.footer()}
+    </div>
+
+  </div>
+</body>
+</html>
+
+<%def name="header()">
+  % if title:
+    <p><a href="${root}">${site_title}</a></p>
+  % else:
+    <h1><a href="${root}">${site_title}</a></h1>
+  % endif
+</%def>
+
+<%def name="footer()">
+  <hr>
+  <p><a href="${root}">Home</a></p>
+</%def>

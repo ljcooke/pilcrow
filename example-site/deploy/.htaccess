@@ -1,0 +1,15 @@
+DirectorySlash Off
+
+<Files .htaccess>
+    order allow,deny
+    deny from all
+</Files>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # rewrite /page.html to /page
+    RewriteCond %{REQUEST_FILENAME}.html -f
+    RewriteRule ^([a-zA-Z0-9/-]+)$ $1.html [QSA,L]
+</IfModule>
