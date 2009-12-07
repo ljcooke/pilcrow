@@ -6,18 +6,25 @@
 
 <p class="time" title="${date.isoformat()}">
   ${date.strftime('%e %B %Y')}
+  % if posted:
+    (posted ${posted.strftime('%e %B %Y')})
+  % endif
 </p>
 
 ${content}
 
+<%def name="footer()">
+  <p>
+    % if prevpost:
+      <a href="${prevpost.url}">&larr; ${prevpost.title or 'Untitled'}</a>
+      <span class="sep">|</span>
+    % endif
 
-% if prevpost or nextpost:
-<p>
-  % if prevpost:
-  <a href="${prevpost.url}">&larr; ${prevpost.title or 'Untitled'}</a>
-  % endif
-  % if nextpost:
-  <a href="${nextpost.url}">${nextpost.title or 'Untitled'} &rarr;</a>
-  % endif
-</p>
-% endif
+    <a href="${get(date.year).url}">${date.year}</a>
+
+    % if nextpost:
+      <span class="sep">|</span>
+      <a href="${nextpost.url}">${nextpost.title or 'Untitled'} &rarr;</a>
+    % endif
+  </p>
+</%def>

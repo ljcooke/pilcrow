@@ -16,9 +16,11 @@
       ${next.body()}
     </div>
 
+    % if id != 'index':
     <div id="footer">
       ${self.footer()}
     </div>
+    % endif
 
   </div>
 </body>
@@ -33,6 +35,5 @@
 </%def>
 
 <%def name="footer()">
-  <hr>
   <p><a href="${root}">Home</a></p>
 </%def>

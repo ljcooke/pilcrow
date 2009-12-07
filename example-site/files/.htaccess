@@ -7,7 +7,7 @@ DirectorySlash Off
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
+    RewriteBase /pilcrow/
 
     # rewrite /page.html to /page
     RewriteCond %{REQUEST_FILENAME}.html -f

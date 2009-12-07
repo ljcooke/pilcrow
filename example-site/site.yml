@@ -1,4 +1,5 @@
-site_title: Example Site
+site_title: Pilcrow
 title_format: "%(site_title)s: %(title)s"
-root: /
-domain: "http://localhost/"
+root: /pilcrow/
+domain: "http://inky.github.com/"
+clean_urls: no

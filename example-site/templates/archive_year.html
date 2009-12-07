@@ -1,5 +1,9 @@
 <%inherit file="_base.html"/>
 
+% if title:
+<h1>${title}</h1>
+% endif
+
 <ul>
   % for entry in entries:
     <li>
@@ -8,3 +12,16 @@
     </li>
   % endfor
 </ul>
+
+<%def name="footer()">
+  <p><a href="${root}">Home</a>
+  % for y in years:
+      <span class="sep">|</span>
+  %   if year == y:
+        <span class="selected">${y}</span>
+  %   else:
+        <a href="${get(y).url}">${y}</a>
+  %   endif
+  % endfor
+  </p>
+</%def>

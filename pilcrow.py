@@ -39,7 +39,9 @@ FILES_ACTION = {
     '.less': lambda s, d: run_or_die('lessc %s %s' % (s, d)),
 }
 
-CONTEXT = {}
+CONTEXT = {
+    'clean_urls': False,
+}
 
 alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
 filemtime = lambda f: datetime.fromtimestamp(os.fstat(f.fileno()).st_mtime)
@@ -61,8 +63,9 @@ def norm_tags(obj):
     tags = is_str(obj) and obj.split(',' in obj and ',' or None) or obj
     return tuple(filter(bool, (alphanum(tag) for tag in tags)))
 
-def join_url(*parts):
-    return '/'.join(str(s) for s in parts if s)
+def join_url(*parts, **kwargs):
+    ext = (kwargs.get('ext', 1) and not CONTEXT['clean_urls']) and '.html' or ''
+    return re.sub('//+', '/', '/'.join(str(s) for s in parts if s)) + ext
 
 def mkdir(d):
     try: os.mkdir(d)
@@ -90,13 +93,12 @@ class Page(dict):
         self.update(kwargs)
 
     def __getattr__(self, name):
-        if name == 'id' and self[name] == 'index':
-            return ''
         return self[name]
 
     @property
     def url(self):
-        return CONTEXT['root'] + self.id
+        id = self.id
+        return join_url(CONTEXT['root'], id != 'index' and id)
 
 class ContentPage(Page):
     NORM = {
@@ -117,14 +119,13 @@ class ContentPage(Page):
             self[key] = self.NORM.get(key, identity)(val)
         if self.date:
             self.update({
-                'id': join_url(self.date.year, id),
+                'id': join_url(self.date.year, id, ext=False),
                 'template': self.template or 'entry',
+                'posted': self.get('posted', None),
                 'month_name': self.date.strftime('%B'),
                 'prevpost': None,
                 'nextpost': None,
             })
-            if 'posted' not in self:
-                self['posted'] = self.date
 
         def _summary(m):
             summary = m.group(2).strip()
@@ -135,9 +136,11 @@ class ContentPage(Page):
 class ArchivePage(Page):
 
     def __init__(self, entries, year, month=0):
-        id = join_url(year, month and '%02d' % month)
+        id = join_url(year, month and '%02d' % month, ext=False)
         Page.__init__(self, id, {
             'entries': entries,
+            'year': year,
+            'month': month,
             'template': 'archive_%s' % (month and 'month' or 'year'),
             'title': month and datetime(year, month, 1).strftime('%B %Y') or year,
         })
@@ -153,6 +156,9 @@ class PageManager:
             die('duplicate page id: %s' % page.id)
         self.pages[page.id] = page
 
+    def __getitem__(self, id):
+        return self.pages[id]
+
     def all(self):
         return self.pages.values()
 
@@ -167,10 +173,14 @@ class PageManager:
                 context['head_title'] = context['title_format'] % context
             try:
                 html = template.render_unicode(**context).strip()
-                with open(path.join(DEPLOY_DIR, page['id']) + '.html', 'w') as f:
+                with open(path.join(DEPLOY_DIR, page.id) + '.html', 'w') as f:
                     f.write(html.encode('utf-8'))
             except NameError:
                 die('template error: undefined variable in', template.filename)
+
+CONTEXT.update({
+    'join_url': join_url,
+})
 
 def build(site_path, clean=False):
     try: os.chdir(site_path)
@@ -184,7 +194,7 @@ def build(site_path, clean=False):
 
     global CONTEXT
     with open(CONFIG_FILE) as f:
-        CONTEXT = yaml.load(f)
+        CONTEXT.update(yaml.load(f))
 
     if clean:
         shutil.rmtree(deploy_path, ignore_errors=True)
@@ -229,13 +239,14 @@ def build(site_path, clean=False):
         return tuple(results)[:limit]
 
     CONTEXT.update({
+        'get': lambda id: pages[str(id)],
         'pages': select,
         'domain': CONTEXT['domain'].rstrip('/'),
         'root': '/' + CONTEXT.get('root', '').lstrip('/'),
         'head_title': CONTEXT.get('site_title', ''),
+        'years': sorted(years.keys()),
         'default_template': CONTEXT.get('default_template', 'page'),
     })
-
     try: pages.render()
     except MakoException as e: die('template error:', e)
 

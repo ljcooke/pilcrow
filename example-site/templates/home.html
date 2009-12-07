@@ -1,12 +1,19 @@
 <%inherit file="_base.html"/>
 
+${content}
+
+<h2>Sample Posts</h2>
+
 <ul>
   % for page in pages(5):
-    <li>
-      <a href="${page.url}">${page.title or 'Untitled'}</a>
-      (${page.date.strftime('%Y-%b-%d')})
-    </li>
+    <li><a href="${page.url}">${page.title or 'Untitled'}</a>
+      (${ (page.posted or page.date).strftime('%Y-%b-%d') })
   % endfor
 </ul>
 
-${content}
+<h2>Links</h2>
+
+<ul>
+  <li><a href="${get('about').url}">About</a>
+  <li><a href="http://github.com/inky/pilcrow">Code on GitHub</a>
+</ul>

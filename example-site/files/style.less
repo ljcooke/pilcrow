@@ -1,28 +1,43 @@
-@background: #fff;
-@text: #000;
+@background: #222;
+@text: #eee;
+@link: #eb2;
 
 body {
-    background: @background - #111;
+    background: @background / 1.5;
     color: @text;
     font: 1em/1.5 'Helvetica Neue', Helvetica, Arial, sans-serif;
     margin: 3em;
+    text-shadow: (@background - #181818) 0 1px 1px;
 }
 
 #page {
     background: @background;
-    border: 4px double (@background - #666);
+    border: 2px solid (@background * 1.5);
     max-width: 36em;
     padding: 2em 3em;
 }
 
+#header {
+    h1, p { margin-top: 0; }
+}
+
 #footer {
-    border-top: 3px solid (@background - #333);
+    border-top: 3px solid (@text / 4);
     margin-top: 3em;
-    hr { display: none; }
+    .sep { color: @text / 2; }
 }
 
 p.time {
-    color: #666;
+    color: @text / 2;
     font-size: 0.9em;
     text-transform: uppercase;
+}
+
+a:link, a:visited {
+    color: @link;
+    font-weight: bold;
+    text-decoration: none;
+}
+a:hover {
+    color: @link + #333;
 }
