@@ -39,7 +39,7 @@ FILES_ACTION = {
     '.less': lambda s, d: run_or_die('lessc %s %s' % (s, d)),
 }
 
-CONTEXT = {
+context = {
     'clean_urls': False,
 }
 
@@ -49,27 +49,27 @@ identity = lambda o: o
 is_str = lambda o: isinstance(o, basestring)
 
 def die(*msg):
-    msg = ' '.join(str(m) for m in msg) + '\n'
-    yellow = '\033[93m%s\033[00m'
-    sys.stderr.write(re.sub('^(.*?:)', yellow % r'\1', msg))
+    sys.stderr.write(' '.join(str(m) for m in msg) + '\n')
     sys.exit(1)
 
 def run_or_die(cmd):
     status, output = getstatusoutput(cmd)
     if status > 0: die(output)
 
+norm_key = lambda s: re.sub('[- ]+', '_', s.lower())
 norm_time = lambda s: s and dateutil.parser.parse(str(s), fuzzy=True) or None
 def norm_tags(obj):
     tags = is_str(obj) and obj.split(',' in obj and ',' or None) or obj
     return tuple(filter(bool, (alphanum(tag) for tag in tags)))
 
 def join_url(*parts, **kwargs):
-    ext = (kwargs.get('ext', 1) and not CONTEXT['clean_urls']) and '.html' or ''
+    ext = (kwargs.get('ext', 1) and not context['clean_urls']) and '.html' or ''
     return re.sub('//+', '/', '/'.join(str(s) for s in parts if s)) + ext
+context['join_url'] = join_url
 
 def mkdir(d):
     try: os.mkdir(d)
-    except OSError: pass  # ignore errors if directory exists
+    except OSError: pass
 
 def neighbours(iterable):
     "1..4 -> (None,1,2), (1,2,3), (2,3,4), (3,4,None)"
@@ -82,14 +82,14 @@ class Page(dict):
     _sortkey = lambda self: '%s %s' % (self.date or '0000-00-00', self.id)
     __cmp__ = lambda self, obj: cmp(self._sortkey(), obj._sortkey())
 
-    def __init__(self, id, items={}, **kwargs):
+    def __init__(self, id, attrs={}, **kwargs):
         dict.__init__(self, {
             'date': None,
+            'id': str(id),
             'title': '',
             'template': '',
         })
-        self['id'] = str(id)
-        self.update(items)
+        self.update(attrs)
         self.update(kwargs)
 
     def __getattr__(self, name):
@@ -98,7 +98,7 @@ class Page(dict):
     @property
     def url(self):
         id = self.id
-        return join_url(CONTEXT['root'], id != 'index' and id)
+        return join_url(context['root'], id != 'index' and id)
 
 class ContentPage(Page):
     NORM = {
@@ -116,6 +116,7 @@ class ContentPage(Page):
         body = data and data.pop() or ''
 
         for key, val in head.items():
+            key = norm_key(key)
             self[key] = self.NORM.get(key, identity)(val)
         if self.date:
             self.update({
@@ -164,38 +165,32 @@ class PageManager:
 
     def render(self):
         for page in sorted(self.pages.values()):
-            t = page.template or CONTEXT['default_template']
+            t = page.template or context['default_template']
             template = self.lookup.get_template('%s.html' % t)
             print '%14s : /%s' % (t, page.id)
 
-            context = dict(CONTEXT.items() + page.items())
-            if context['title']:
-                context['head_title'] = context['title_format'] % context
+            vars = dict(context, **page)
+            if vars['title']:
+                vars['head_title'] = vars['title_format'] % vars
             try:
-                html = template.render_unicode(**context).strip()
+                html = template.render_unicode(**vars).strip()
                 with open(path.join(DEPLOY_DIR, page.id) + '.html', 'w') as f:
                     f.write(html.encode('utf-8'))
             except NameError:
                 die('template error: undefined variable in', template.filename)
 
-CONTEXT.update({
-    'join_url': join_url,
-})
-
 def build(site_path, clean=False):
     try: os.chdir(site_path)
     except OSError: die('invalid path:', site_path)
-
-    base_path = path.realpath(os.curdir)
-    deploy_path = path.realpath(DEPLOY_DIR)
-
     if any(f for f in REQUIRED_FILES if not path.exists(f)):
         die('required files/folders: %s' % ', '.join(REQUIRED_FILES))
 
-    global CONTEXT
     with open(CONFIG_FILE) as f:
-        CONTEXT.update(yaml.load(f))
+        for k, v in yaml.load(f).items():
+            context[norm_key(k)] = v
 
+    base_path = path.realpath(os.curdir)
+    deploy_path = path.realpath(DEPLOY_DIR)
     if clean:
         shutil.rmtree(deploy_path, ignore_errors=True)
         mkdir(deploy_path)
@@ -238,14 +233,14 @@ def build(site_path, clean=False):
         if dated: results = [page for page in results if page.date]
         return tuple(results)[:limit]
 
-    CONTEXT.update({
+    context.update({
         'get': lambda id: pages[str(id)],
         'pages': select,
-        'domain': CONTEXT['domain'].rstrip('/'),
-        'root': '/' + CONTEXT.get('root', '').lstrip('/'),
-        'head_title': CONTEXT.get('site_title', ''),
+        'domain': context['domain'].rstrip('/'),
+        'root': '/' + context.get('root', '').lstrip('/'),
+        'head_title': context.get('site_title', ''),
         'years': sorted(years.keys()),
-        'default_template': CONTEXT.get('default_template', 'page'),
+        'default_template': context.get('default_template', 'page'),
     })
     try: pages.render()
     except MakoException as e: die('template error:', e)
