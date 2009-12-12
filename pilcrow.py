@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from collections import defaultdict
 from commands import getstatusoutput
 from datetime import datetime
@@ -43,10 +44,14 @@ context = {
     'clean_urls': False,
 }
 
+sortkey_origin = lambda page: (timestamp(page.date), page.id)
+sortkey_posted = lambda page: (timestamp(page.posted or page.date), page.id)
+
 alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
 filemtime = lambda f: datetime.fromtimestamp(os.fstat(f.fileno()).st_mtime)
 identity = lambda o: o
 is_str = lambda o: isinstance(o, basestring)
+timestamp = lambda dt: dt and int(time.mktime(dt.timetuple())) or 0
 
 def die(*msg):
     sys.stderr.write(' '.join(str(m) for m in msg) + '\n')
@@ -79,12 +84,11 @@ def neighbours(iterable):
     return izip(a, L, b)
 
 class Page(dict):
-    _sortkey = lambda self: '%s %s' % (self.date or '0000-00-00', self.id)
-    __cmp__ = lambda self, obj: cmp(self._sortkey(), obj._sortkey())
 
     def __init__(self, id, attrs={}, **kwargs):
         dict.__init__(self, {
             'date': None,
+            'posted': None,
             'id': str(id),
             'title': '',
             'template': '',
@@ -102,7 +106,7 @@ class Page(dict):
 
 class ContentPage(Page):
     NORM = {
-        'date': norm_time, 'posted': norm_time, 'started': norm_time,
+        'date': norm_time, 'posted': norm_time,
         'tags': norm_tags, 'category': norm_tags,
         'summary': markdown,
     }
@@ -122,7 +126,6 @@ class ContentPage(Page):
             self.update({
                 'id': join_url(self.date.year, id, ext=False),
                 'template': self.template or 'entry',
-                'posted': self.get('posted', None),
                 'month_name': self.date.strftime('%B'),
                 'prevpost': None,
                 'nextpost': None,
@@ -160,11 +163,15 @@ class PageManager:
     def __getitem__(self, id):
         return self.pages[id]
 
-    def all(self):
-        return self.pages.values()
+    def all(self, sortby_origin=False):
+        sortkey = sortby_origin and sortkey_origin or sortkey_posted
+        return sorted(self.pages.values(), key=sortkey)
+
+    def __iter__(self):
+        return iter(self.pages.values())
 
     def render(self):
-        for page in sorted(self.pages.values()):
+        for page in self:
             t = page.template or context['default_template']
             template = self.lookup.get_template('%s.html' % t)
             print '%14s : /%s' % (t, page.id)
@@ -221,14 +228,18 @@ def build(site_path, clean=False):
                     years[page.date.year].append(page)
 
     for year, posts in sorted(years.items()):
-        mkdir(path.join(DEPLOY_DIR, str(year)))
-        posts = sorted(posts)
+        posts = sorted(posts, key=sortkey_origin)
         pages.add(ArchivePage(posts, year))
         for prevpost, post, nextpost in neighbours(posts):
             post['prevpost'], post['nextpost'] = prevpost, nextpost
 
-    def select(limit=None, dated=True, chrono=False):
-        results = pages.all()
+    dirs = filter(bool, [os.path.dirname(p.id) for p in pages])
+    for d in sorted(set(dirs)):
+        mkdir(os.path.join(deploy_path, d))
+
+    def select(limit=None, dated=True, chrono=False, sortby_origin=None):
+        if sortby_origin is None: sortby_origin = bool(chrono)
+        results = pages.all(sortby_origin)
         if not chrono: results.reverse()
         if dated: results = [page for page in results if page.date]
         return tuple(results)[:limit]
