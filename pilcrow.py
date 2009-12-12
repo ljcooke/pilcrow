@@ -13,6 +13,7 @@ from itertools import izip
 from os import path
 
 import dateutil.parser
+import PyRSS2Gen as rss2
 import yaml
 from mako.exceptions import MakoException
 from mako.lookup import TemplateLookup
@@ -23,17 +24,21 @@ FILES_ACTIONS = {
     '.less': lambda s, d: run_or_die('lessc %s %s' % (s, d)),
 }
 site = yaml.load(r"""
+    domain: http://localhost/
+    root: /
     clean_urls: no
     content_extensions: [text, markdown, mkdn, md]
     dirs:
         content: content
-        deploy: deploy
         files: files
         templates: templates
+        deploy: deploy
+    feed: feed.rss
     files_exclude: "(^\\.|~$)"
     files_include: "^\\.htaccess$"
     files_rename:
         .less: .css
+    lang: en
 """)
 
 alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
@@ -95,6 +100,10 @@ class Page(dict):
         id = self.id
         return join_url(site['root'], id != 'index' and id)
 
+    @property
+    def full_url(self):
+        return join_url(site['domain'], self.url, ext=False)
+
 class ContentPage(Page):
     NORM = {
         'date': norm_time, 'posted': norm_time,
@@ -128,6 +137,13 @@ class ContentPage(Page):
             return summary
         self['content'] = markdown(self.SUMMARY.sub(_summary, body).strip())
 
+    def feed_item(self):
+        url = self.full_url
+        return rss2.RSSItem(title=self.title, link=url, guid=rss2.Guid(url),
+            description=self.content, pubDate=self.posted or self.date,
+            categories=self.get('tags', None),
+            enclosure=self.get('enclosure', None))
+
 class ArchivePage(Page):
 
     def __init__(self, entries, year, month=0):
@@ -147,20 +163,25 @@ class PageManager:
         tdir = site['dirs']['templates']
         self.lookup = TemplateLookup(directories=[tdir], input_encoding='utf-8')
 
+    def __getitem__(self, id):
+        return self.pages[id]
+
+    def __iter__(self):
+        return iter(self.pages.values())
+
     def add(self, page):
         if page.id in self.pages:
             die('duplicate page id: %s' % page.id)
         self.pages[page.id] = page
 
-    def __getitem__(self, id):
-        return self.pages[id]
-
-    def all(self, sortby_origin=False):
+    def select(self, limit=None, dated=True, chrono=False, sortby_origin=None):
+        if sortby_origin is None:
+            sortby_origin = bool(chrono)
         sortkey = sortby_origin and Page.sortkey_origin or Page.sortkey_posted
-        return sorted(self.pages.values(), key=sortkey)
-
-    def __iter__(self):
-        return iter(self.pages.values())
+        results = sorted(self.pages.values(), key=sortkey, reverse=not chrono)
+        if dated:
+            results = [page for page in results if page.date]
+        return tuple(results)[:limit]
 
     def render(self):
         for page in self:
@@ -235,16 +256,9 @@ def build(site_path, clean=False):
     for d in sorted(set(dirs)):
         mkdir(os.path.join(deploy_path, d))
 
-    def select(limit=None, dated=True, chrono=False, sortby_origin=None):
-        if sortby_origin is None: sortby_origin = bool(chrono)
-        results = pages.all(sortby_origin)
-        if not chrono: results.reverse()
-        if dated: results = [page for page in results if page.date]
-        return tuple(results)[:limit]
-
     site.update({
         'get': lambda id: pages[str(id)],
-        'pages': select,
+        'pages': pages.select,
         'domain': site['domain'].rstrip('/'),
         'root': '/' + site.get('root', '').lstrip('/'),
         'head_title': site.get('site_title', ''),
@@ -253,6 +267,15 @@ def build(site_path, clean=False):
     })
     try: pages.render()
     except MakoException as e: die('template error:', e)
+
+    if site['feed']:
+        feed_posts = pages.select(10)
+        feed = rss2.RSS2(items=[p.feed_item() for p in feed_posts],
+            title=site['site_title'], description=site.get('description', ''),
+            link=join_url(site['domain'], site['root']), generator='Pilcrow',
+            language=site['lang'], lastBuildDate=feed_posts[0].date)
+        with open(path.join(deploy_path, site['feed']), 'w') as f:
+            feed.write_xml(f, 'utf-8')
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()

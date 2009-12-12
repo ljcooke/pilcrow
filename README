@@ -11,6 +11,7 @@ Requires Python 2.6, with the following modules:
     dateutil    python-dateutil     http://labix.org/python-dateutil
     mako        Mako                http://www.makotemplates.org/
     markdown    Markdown            http://www.freewisdom.org/projects/python-markdown
+    PyRSS2Gen   PyRSS2Gen           http://dalkescientific.com/Python/PyRSS2Gen.html
     yaml        PyYAML              http://pyyaml.org/wiki/PyYAML
 
 At the moment there isn't any documentation, or even a list of features.
@@ -24,4 +25,6 @@ Licensed under the terms of the MIT license (see the LICENSE file).
 LINKS
 =====
 
-    Template documentation          http://www.makotemplates.org/docs/
+Documentation:
+    Mako templates          http://www.makotemplates.org/docs/
+    Markdown formatting     http://daringfireball.net/projects/markdown/basics
