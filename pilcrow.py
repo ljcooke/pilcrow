@@ -6,17 +6,10 @@ Copyright (c) 2009 Liam Cooke
 Licensed under the terms of the MIT license.
 
 """
-import codecs
-import os
-import re
-import shutil
-import sys
-import time
+import codecs, commands, optparse, os, re, shutil, sys, time
 from collections import defaultdict
-from commands import getstatusoutput
 from datetime import datetime
 from itertools import izip
-from optparse import OptionParser
 from os import path
 
 import dateutil.parser
@@ -25,27 +18,23 @@ from mako.exceptions import MakoException
 from mako.lookup import TemplateLookup
 from markdown import markdown
 
-CONTENT_EXTS = ('.text', '.markdown', '.mkdn', '.md')
 CONFIG_FILE = 'site.yml'
-DEPLOY_DIR = 'deploy'
-CONTENT_DIR = 'content'
-FILES_DIR = 'files'
-TEMPLATES_DIR = 'templates'
-REQUIRED_FILES = (CONFIG_FILE, CONTENT_DIR, TEMPLATES_DIR)
-
-FILES_EXCLUDE = re.compile(r'(^\.|~$)')
-FILES_INCLUDE = re.compile(r'^\.htaccess$')
-FILES_RENAME = {'.less': '.css'}
-FILES_ACTION = {
+FILES_ACTIONS = {
     '.less': lambda s, d: run_or_die('lessc %s %s' % (s, d)),
 }
-
-context = {
-    'clean_urls': False,
-}
-
-sortkey_origin = lambda page: (timestamp(page.date), page.id)
-sortkey_posted = lambda page: (timestamp(page.posted or page.date), page.id)
+site = yaml.load(r"""
+    clean_urls: no
+    content_extensions: [text, markdown, mkdn, md]
+    dirs:
+        content: content
+        deploy: deploy
+        files: files
+        templates: templates
+    files_exclude: "(^\\.|~$)"
+    files_include: "^\\.htaccess$"
+    files_rename:
+        .less: .css
+""")
 
 alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
 filemtime = lambda f: datetime.fromtimestamp(os.fstat(f.fileno()).st_mtime)
@@ -58,7 +47,7 @@ def die(*msg):
     sys.exit(1)
 
 def run_or_die(cmd):
-    status, output = getstatusoutput(cmd)
+    status, output = commands.getstatusoutput(cmd)
     if status > 0: die(output)
 
 norm_key = lambda s: re.sub('[- ]+', '_', s.lower())
@@ -68,9 +57,9 @@ def norm_tags(obj):
     return tuple(filter(bool, (alphanum(tag) for tag in tags)))
 
 def join_url(*parts, **kwargs):
-    ext = (kwargs.get('ext', 1) and not context['clean_urls']) and '.html' or ''
+    ext = (kwargs.get('ext', 1) and not site['clean_urls']) and '.html' or ''
     return re.sub('//+', '/', '/'.join(str(s) for s in parts if s)) + ext
-context['join_url'] = join_url
+site['join_url'] = join_url
 
 def mkdir(d):
     try: os.mkdir(d)
@@ -84,6 +73,8 @@ def neighbours(iterable):
     return izip(a, L, b)
 
 class Page(dict):
+    sortkey_origin = lambda self: (timestamp(self.date), self.id)
+    sortkey_posted = lambda self: (timestamp(self.posted or self.date), self.id)
 
     def __init__(self, id, attrs={}, **kwargs):
         dict.__init__(self, {
@@ -102,7 +93,7 @@ class Page(dict):
     @property
     def url(self):
         id = self.id
-        return join_url(context['root'], id != 'index' and id)
+        return join_url(site['root'], id != 'index' and id)
 
 class ContentPage(Page):
     NORM = {
@@ -153,7 +144,8 @@ class PageManager:
 
     def __init__(self):
         self.pages = {}
-        self.lookup = TemplateLookup(directories=[TEMPLATES_DIR], input_encoding='utf-8')
+        tdir = site['dirs']['templates']
+        self.lookup = TemplateLookup(directories=[tdir], input_encoding='utf-8')
 
     def add(self, page):
         if page.id in self.pages:
@@ -164,7 +156,7 @@ class PageManager:
         return self.pages[id]
 
     def all(self, sortby_origin=False):
-        sortkey = sortby_origin and sortkey_origin or sortkey_posted
+        sortkey = sortby_origin and Page.sortkey_origin or Page.sortkey_posted
         return sorted(self.pages.values(), key=sortkey)
 
     def __iter__(self):
@@ -172,16 +164,17 @@ class PageManager:
 
     def render(self):
         for page in self:
-            t = page.template or context['default_template']
+            t = page.template or site['default_template']
             template = self.lookup.get_template('%s.html' % t)
             print '%14s : /%s' % (t, page.id)
 
-            vars = dict(context, **page)
+            vars = dict(site, **page)
             if vars['title']:
                 vars['head_title'] = vars['title_format'] % vars
             try:
                 html = template.render_unicode(**vars).strip()
-                with open(path.join(DEPLOY_DIR, page.id) + '.html', 'w') as f:
+                fname = path.join(site['dirs']['deploy'], page.id) + '.html'
+                with open(fname, 'w') as f:
                     f.write(html.encode('utf-8'))
             except NameError:
                 die('template error: undefined variable in', template.filename)
@@ -189,38 +182,43 @@ class PageManager:
 def build(site_path, clean=False):
     try: os.chdir(site_path)
     except OSError: die('invalid path:', site_path)
-    if any(f for f in REQUIRED_FILES if not path.exists(f)):
-        die('required files/folders: %s' % ', '.join(REQUIRED_FILES))
+    if not path.exists(CONFIG_FILE):
+        die('%s not found' % CONFIG_FILE)
 
     with open(CONFIG_FILE) as f:
         for k, v in yaml.load(f).items():
-            context[norm_key(k)] = v
+            if type(v) is dict:
+                site[norm_key(k)].update(v)
+            else:
+                site[norm_key(k)] = v
 
     base_path = path.realpath(os.curdir)
-    deploy_path = path.realpath(DEPLOY_DIR)
+    deploy_path = path.realpath(site['dirs']['deploy'])
     if clean:
         shutil.rmtree(deploy_path, ignore_errors=True)
         mkdir(deploy_path)
 
-    os.chdir(FILES_DIR)
+    os.chdir(site['dirs']['files'])
+    excludes, includes = re.compile(site['files_exclude']), re.compile(site['files_include'])
     for root, _, files in os.walk(os.curdir):
         mkdir(path.normpath(path.join(deploy_path, root)))
         for fname in files:
-            if FILES_EXCLUDE.match(fname) and not FILES_INCLUDE.match(fname):
+            if excludes.match(fname) and not includes.match(fname):
                 continue
             src, dest = path.join(root, fname), path.join(deploy_path, root, fname)
             ext = path.splitext(fname)[1]
-            if ext in FILES_RENAME:
-                dest = path.splitext(dest)[0] + FILES_RENAME[ext]
+            if ext in site['files_rename']:
+                dest = path.splitext(dest)[0] + site['files_rename'][ext]
             if path.isfile(dest) and path.getmtime(src) <= path.getmtime(dest):
                 continue
-            FILES_ACTION.get(ext, shutil.copy2)(src, dest)
+            FILES_ACTIONS.get(ext, shutil.copy2)(src, dest)
             print '%s => %s' % (path.relpath(src, base_path), path.relpath(dest, base_path))
     os.chdir(base_path)
 
     pages, years = PageManager(), defaultdict(list)
-    for root, _, files in os.walk(CONTENT_DIR):
-        for file in filter(lambda f: path.splitext(f)[1] in CONTENT_EXTS, files):
+    for root, _, files in os.walk(site['dirs']['content']):
+        exts = ['.%s' % ext for ext in site['content_extensions']]
+        for file in filter(lambda f: path.splitext(f)[1] in exts, files):
             with codecs.open(path.join(root, file), 'r', encoding='utf-8') as fp:
                 page = ContentPage(fp)
                 pages.add(page)
@@ -228,7 +226,7 @@ def build(site_path, clean=False):
                     years[page.date.year].append(page)
 
     for year, posts in sorted(years.items()):
-        posts = sorted(posts, key=sortkey_origin)
+        posts = sorted(posts, key=Page.sortkey_origin)
         pages.add(ArchivePage(posts, year))
         for prevpost, post, nextpost in neighbours(posts):
             post['prevpost'], post['nextpost'] = prevpost, nextpost
@@ -244,20 +242,20 @@ def build(site_path, clean=False):
         if dated: results = [page for page in results if page.date]
         return tuple(results)[:limit]
 
-    context.update({
+    site.update({
         'get': lambda id: pages[str(id)],
         'pages': select,
-        'domain': context['domain'].rstrip('/'),
-        'root': '/' + context.get('root', '').lstrip('/'),
-        'head_title': context.get('site_title', ''),
+        'domain': site['domain'].rstrip('/'),
+        'root': '/' + site.get('root', '').lstrip('/'),
+        'head_title': site.get('site_title', ''),
         'years': sorted(years.keys()),
-        'default_template': context.get('default_template', 'page'),
+        'default_template': site.get('default_template', 'page'),
     })
     try: pages.render()
     except MakoException as e: die('template error:', e)
 
 if __name__ == '__main__':
-    parser = OptionParser()
+    parser = optparse.OptionParser()
     parser.add_option('-x', '--clean', action='store_true', default=False)
     options, args = parser.parse_args()
     build(args and args[0] or '.', clean=options.clean)
