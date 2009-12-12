@@ -112,6 +112,8 @@ class ContentPage(Page):
     }
     SUMMARY = re.compile('(<summary>)(.*?)(</summary>)', re.DOTALL)
 
+    backposted = lambda self: self.posted and self.posted.date() > self.date.date()
+
     def __init__(self, fp):
         id = path.splitext(path.basename(fp.name))[0]
         Page.__init__(self, id, modified=filemtime(fp))
@@ -138,8 +140,10 @@ class ContentPage(Page):
         self['content'] = markdown(self.SUMMARY.sub(_summary, body).strip())
 
     def feed_item(self):
-        url = self.full_url
-        return rss2.RSSItem(title=self.title, link=url, guid=rss2.Guid(url),
+        url, title = self.full_url, self.title or 'Untitled'
+        if self.backposted():
+            title += ' [%s]' % self.date.strftime('%Y-%m-%d')
+        return rss2.RSSItem(title=title, link=url, guid=rss2.Guid(url),
             description=self.content, pubDate=self.posted or self.date,
             categories=self.get('tags', None),
             enclosure=self.get('enclosure', None))
@@ -270,10 +274,11 @@ def build(site_path, clean=False):
 
     if site['feed']:
         feed_posts = pages.select(10)
+        feed_date = feed_posts[0].posted or feed_posts[0].date
         feed = rss2.RSS2(items=[p.feed_item() for p in feed_posts],
             title=site['site_title'], description=site.get('description', ''),
             link=join_url(site['domain'], site['root']), generator='Pilcrow',
-            language=site['lang'], lastBuildDate=feed_posts[0].date)
+            language=site['lang'], lastBuildDate=feed_date)
         with open(path.join(deploy_path, site['feed']), 'w') as f:
             feed.write_xml(f, 'utf-8')
 
