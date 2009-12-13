@@ -5,11 +5,13 @@ tags:
   - typography
   - filler
 
+<summary>
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer ultrices
 tempor tincidunt. Mauris sit amet ante augue, eu pulvinar lorem. Nam eleifend
 sodales consectetur. Sed eget mi ac nunc ultrices egestas a vitae nibh.
 Maecenas mattis pharetra lorem. Fusce faucibus lacus nec tellus interdum nec
 cursus ante consequat.
+</summary>
 
 Aliquam sed nisi mauris.
 

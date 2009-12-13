@@ -1,18 +1,18 @@
 PILCROW
 =======
 
-A simple static site generator, tailored for my own needs.
-(Work in progress.)
+A static site generator, tailored for my own needs. (Work in progress.)
 
 Requires Python 2.6, with the following modules:
 
-    name        easy_install        url
-    ----        ------------        ---
-    dateutil    python-dateutil     http://labix.org/python-dateutil
-    mako        Mako                http://www.makotemplates.org/
-    markdown    Markdown            http://www.freewisdom.org/projects/python-markdown
-    PyRSS2Gen   PyRSS2Gen           http://dalkescientific.com/Python/PyRSS2Gen.html
-    yaml        PyYAML              http://pyyaml.org/wiki/PyYAML
+    module              easy_install        url
+    ------              ----                ---
+    BeautifulSoup       BeautifulSoup       http://www.crummy.com/software/BeautifulSoup/
+    dateutil            python-dateutil     http://labix.org/python-dateutil
+    mako                Mako                http://www.makotemplates.org/
+    markdown            Markdown            http://www.freewisdom.org/projects/python-markdown
+    PyRSS2Gen           PyRSS2Gen           http://dalkescientific.com/Python/PyRSS2Gen.html
+    yaml                PyYAML              http://pyyaml.org/wiki/PyYAML
 
 At the moment there isn't any documentation, or even a list of features.
 But you can get some idea of how it works by comparing the contents of

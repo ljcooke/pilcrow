@@ -3,7 +3,6 @@
 ${content}
 
 <h2>Sample Posts</h2>
-
 <ul>
   % for page in pages(5):
     <li><a href="${page.url}">${page.title or 'Untitled'}</a>
@@ -12,8 +11,14 @@ ${content}
 </ul>
 
 <h2>Links</h2>
-
 <ul>
   <li><a href="${get('about').url}">About</a>
   <li><a href="http://github.com/inky/pilcrow">Code on GitHub</a>
+</ul>
+
+<h2>Tags</h2>
+<ul>
+  % for tag in tags_by_count():
+    <li><a href="${tag.url}">${tag.full_name}</a> (${len(tag.tagged)})
+  % endfor
 </ul>

@@ -1,10 +1,14 @@
 title: What's new in Python 2.6
 date: October 1 2008
 posted: 2009-12-06 22:44 UTC
-tags: python
+tags: python, lorem ipsum
 
+<summary>
 This article explains the new features in Python 2.6, released on October 1
 2008. The release schedule is described in [PEP 361][pep361].
+
+[pep361]: http://www.python.org/dev/peps/pep-0361
+</summary>
 
 The major theme of Python 2.6 is preparing the migration path to Python 3.0, a
 major redesign of the language. Whenever possible, Python 2.6 incorporates new
@@ -29,5 +33,3 @@ should refer to the documentation for Python 2.6. If you want to understand
 the rationale for the design and implementation, refer to the PEP for a
 particular new feature. Whenever possible, “What’s New in Python” links to the
 bug/patch item for each change.
-
-[pep361]: http://www.python.org/dev/peps/pep-0361

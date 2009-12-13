@@ -15,6 +15,12 @@ ${content}
 
 <%def name="footer()">
   <p>
+    % if tags:
+      % for i, tag in enumerate(tags.values()):
+        <a href="${tag.url}">${tag.full_name}</a>
+      % endfor
+    % endif
+  <p>
     % if prevpost:
       <a href="${prevpost.url}">&larr; ${prevpost.title or 'Untitled'}</a>
       <span class="sep">|</span>
@@ -26,5 +32,4 @@ ${content}
       <span class="sep">|</span>
       <a href="${nextpost.url}">${nextpost.title or 'Untitled'} &rarr;</a>
     % endif
-  </p>
 </%def>

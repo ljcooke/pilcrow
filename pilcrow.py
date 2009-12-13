@@ -15,6 +15,7 @@ from os import path
 import dateutil.parser
 import PyRSS2Gen as rss2
 import yaml
+from BeautifulSoup import BeautifulSoup
 from mako.exceptions import MakoException
 from mako.lookup import TemplateLookup
 from markdown import markdown
@@ -23,6 +24,7 @@ CONFIG_FILE = 'site.yml'
 FILES_ACTIONS = {
     '.less': lambda s, d: run_or_die('lessc %s %s' % (s, d)),
 }
+
 site = yaml.load(r"""
     domain: http://localhost/
     root: /
@@ -40,6 +42,7 @@ site = yaml.load(r"""
         .less: .css
     lang: en
 """)
+
 
 alphanum = lambda s: re.sub('[^A-Za-z0-9]', '', s)
 filemtime = lambda f: datetime.fromtimestamp(os.fstat(f.fileno()).st_mtime)
@@ -59,7 +62,7 @@ norm_key = lambda s: re.sub('[- ]+', '_', s.lower())
 norm_time = lambda s: s and dateutil.parser.parse(str(s), fuzzy=True) or None
 def norm_tags(obj):
     tags = is_str(obj) and obj.split(',' in obj and ',' or None) or obj
-    return tuple(filter(bool, (alphanum(tag) for tag in tags)))
+    return set(filter(bool, (alphanum(tag) for tag in tags)))
 
 def join_url(*parts, **kwargs):
     ext = (kwargs.get('ext', 1) and not site['clean_urls']) and '.html' or ''
@@ -77,12 +80,14 @@ def neighbours(iterable):
     b = L[1:] + [None]
     return izip(a, L, b)
 
+
 class Page(dict):
     sortkey_origin = lambda self: (timestamp(self.date), self.id)
     sortkey_posted = lambda self: (timestamp(self.posted or self.date), self.id)
 
     def __init__(self, id, attrs={}, **kwargs):
         dict.__init__(self, {
+            'content': '',
             'date': None,
             'posted': None,
             'id': str(id),
@@ -102,21 +107,21 @@ class Page(dict):
 
     @property
     def full_url(self):
-        return join_url(site['domain'], self.url, ext=False)
+        return site['domain'] + self.url
+
 
 class ContentPage(Page):
     NORM = {
         'date': norm_time, 'posted': norm_time,
-        'tags': norm_tags, 'category': norm_tags,
-        'summary': markdown,
+        'tags': norm_tags,
+        'summary': lambda s: ''.join(BeautifulSoup(markdown(s)).findAll(text=True)),
     }
     SUMMARY = re.compile('(<summary>)(.*?)(</summary>)', re.DOTALL)
-
     backposted = lambda self: self.posted and self.posted.date() > self.date.date()
 
     def __init__(self, fp):
         id = path.splitext(path.basename(fp.name))[0]
-        Page.__init__(self, id, modified=filemtime(fp))
+        Page.__init__(self, id, modified=filemtime(fp), tags=set(), summary='')
         data = fp.read().split('\n\n', 1)
         head = yaml.load(data.pop(0))
         body = data and data.pop() or ''
@@ -132,10 +137,12 @@ class ContentPage(Page):
                 'prevpost': None,
                 'nextpost': None,
             })
+        if 'tags' in site:
+            self['tags'] -= set((tag for tag in self.tags if tag not in site['tags']))
 
         def _summary(m):
             summary = m.group(2).strip()
-            self['summary'] = markdown(summary)
+            self['summary'] = ContentPage.NORM['summary'](summary)
             return summary
         self['content'] = markdown(self.SUMMARY.sub(_summary, body).strip())
 
@@ -143,13 +150,13 @@ class ContentPage(Page):
         url, title = self.full_url, self.title or 'Untitled'
         if self.backposted():
             title += ' [%s]' % self.date.strftime('%Y-%m-%d')
+        tags = [rss2.Category(tag, site['home']) for tag in self.tags]
         return rss2.RSSItem(title=title, link=url, guid=rss2.Guid(url),
             description=self.content, pubDate=self.posted or self.date,
-            categories=self.get('tags', None),
-            enclosure=self.get('enclosure', None))
+            categories=tags, enclosure=self.get('enclosure', None))
+
 
 class ArchivePage(Page):
-
     def __init__(self, entries, year, month=0):
         id = join_url(year, month and '%02d' % month, ext=False)
         Page.__init__(self, id, {
@@ -160,10 +167,29 @@ class ArchivePage(Page):
             'title': month and datetime(year, month, 1).strftime('%B %Y') or year,
         })
 
+
+class TagPage(Page):
+    sortkey_count = lambda self: (-len(self.tagged), self.name)
+    sortkey_tag = lambda self: self.name
+
+    def __init__(self, tag):
+        Page.__init__(self, tag, template='tag', tagged={})
+        self.name, self['tag'] = tag, tag
+
+    def add(self, page):
+        self['tagged'][page.id] = page
+
+    @property
+    def full_name(self):
+        return site.get('tags', {}).get(self.name, self.name)
+
+
 class PageManager:
+    tags_by_count = lambda self: sorted(self.tags.values(), key=TagPage.sortkey_count)
+    tags_by_name = lambda self: sorted(self.tags.values(), key=TagPage.sortkey_tag)
 
     def __init__(self):
-        self.pages = {}
+        self.pages, self.tags = {}, {}
         tdir = site['dirs']['templates']
         self.lookup = TemplateLookup(directories=[tdir], input_encoding='utf-8')
 
@@ -178,13 +204,29 @@ class PageManager:
             die('duplicate page id: %s' % page.id)
         self.pages[page.id] = page
 
-    def select(self, limit=None, dated=True, chrono=False, sortby_origin=None):
+        if type(page) is TagPage:
+            self.tags[page.name] = page
+        elif 'tags' in page:
+            page_tags = {}
+            for tag_name in page.get('tags', []):
+                if tag_name in self.tags:
+                    tag = self.tags[tag_name]
+                else:
+                    tag = TagPage(tag_name)
+                    self.add(tag)
+                tag.add(page)
+                page_tags[tag_name] = tag
+            page['tags'] = page_tags
+
+    def select(self, limit=None, dated=True, tag=None, chrono=False, sortby_origin=None):
         if sortby_origin is None:
             sortby_origin = bool(chrono)
         sortkey = sortby_origin and Page.sortkey_origin or Page.sortkey_posted
         results = sorted(self.pages.values(), key=sortkey, reverse=not chrono)
         if dated:
             results = [page for page in results if page.date]
+            if tag:
+                results = [page for page in results if tag in page.tags]
         return tuple(results)[:limit]
 
     def render(self):
@@ -204,6 +246,7 @@ class PageManager:
             except NameError:
                 die('template error: undefined variable in', template.filename)
 
+
 def build(site_path, clean=False):
     try: os.chdir(site_path)
     except OSError: die('invalid path:', site_path)
@@ -212,10 +255,11 @@ def build(site_path, clean=False):
 
     with open(CONFIG_FILE) as f:
         for k, v in yaml.load(f).items():
+            k = norm_key(k)
             if type(v) is dict:
-                site[norm_key(k)].update(v)
+                site[k] = dict(site.get(k, {}), **v)
             else:
-                site[norm_key(k)] = v
+                site[k] = v
 
     base_path = path.realpath(os.curdir)
     deploy_path = path.realpath(site['dirs']['deploy'])
@@ -266,9 +310,13 @@ def build(site_path, clean=False):
         'domain': site['domain'].rstrip('/'),
         'root': '/' + site.get('root', '').lstrip('/'),
         'head_title': site.get('site_title', ''),
+        'site_tags': pages.tags,
+        'tags_by_count': pages.tags_by_count,
+        'tags_by_name': pages.tags_by_name,
         'years': sorted(years.keys()),
         'default_template': site.get('default_template', 'page'),
     })
+    site['home'] = site['domain'] + site['root']
     try: pages.render()
     except MakoException as e: die('template error:', e)
 
@@ -277,7 +325,7 @@ def build(site_path, clean=False):
         feed_date = feed_posts[0].posted or feed_posts[0].date
         feed = rss2.RSS2(items=[p.feed_item() for p in feed_posts],
             title=site['site_title'], description=site.get('description', ''),
-            link=join_url(site['domain'], site['root']), generator='Pilcrow',
+            link=site['domain'] + site['root'], generator='Pilcrow',
             language=site['lang'], lastBuildDate=feed_date)
         with open(path.join(deploy_path, site['feed']), 'w') as f:
             feed.write_xml(f, 'utf-8')

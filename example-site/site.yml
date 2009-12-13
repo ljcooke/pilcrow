@@ -3,3 +3,11 @@ title_format: "%(site_title)s: %(title)s"
 root: /pilcrow/
 domain: "http://inky.github.com/"
 clean_urls: no
+
+tags:
+  loremipsum: Lorem Ipsum
+  pirates: Pirates
+  python: Python
+  typography: Typography
+  wikipedia: Wikipedia
+  wtf: WTF
