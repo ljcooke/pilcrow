@@ -17,7 +17,7 @@ ${content}
   <p>
     % if tags:
       % for i, tag in enumerate(tags.values()):
-        <a href="${tag.url}">${tag.full_name}</a>
+        <a href="${tag.url}">${tag.title}</a>
       % endfor
     % endif
   <p>

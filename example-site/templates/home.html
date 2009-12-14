@@ -19,6 +19,6 @@ ${content}
 <h2>Tags</h2>
 <ul>
   % for tag in tags_by_count():
-    <li><a href="${tag.url}">${tag.full_name}</a> (${len(tag.tagged)})
+    <li><a href="${tag.url}">${tag.title}</a> (${len(tag.tagged)})
   % endfor
 </ul>

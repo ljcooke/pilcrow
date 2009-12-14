@@ -175,13 +175,10 @@ class TagPage(Page):
     def __init__(self, tag):
         Page.__init__(self, tag, template='tag', tagged={})
         self.name, self['tag'] = tag, tag
+        self['title'] = site.get('tags', {}).get(tag, tag)
 
     def add(self, page):
         self['tagged'][page.id] = page
-
-    @property
-    def full_name(self):
-        return site.get('tags', {}).get(self.name, self.name)
 
 
 class PageManager:
