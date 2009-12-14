@@ -136,7 +136,10 @@ class Pilcrow(dict):
 
     def join_url(self, *parts, **kwargs):
         ext = (kwargs.get('ext', 1) and not self['clean_urls']) and '.html' or ''
-        return re.sub('//+', '/', '/'.join(str(s) for s in parts if s)) + ext
+        url = re.sub('//+', '/', '/'.join(str(s) for s in parts if s))
+        if ext and url.endswith(ext):
+            url = url[:-len(ext)]
+        return url + ext
 
     def build(self, clean=False):
         base_path = path.realpath(os.curdir)

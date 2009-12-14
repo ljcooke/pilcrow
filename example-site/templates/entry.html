@@ -33,4 +33,8 @@ ${content}
       <span class="sep">|</span>
       <a href="${nextpost.url}">${nextpost.title or 'Untitled'} &rarr;</a>
     % endif
+
+    % if modified:
+      <p>Last modified: ${modified.strftime('%Y-%m-%d')}
+    % endif
 </%def>

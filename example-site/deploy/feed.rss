@@ -18,7 +18,8 @@ consectetur justo eget rutrum. Morbi eu eros nec nunc molestie blandit.
 Suspendisse lectus mi, sollicitudin at cursus non, congue at tortor.&lt;/p&gt;
 &lt;p&gt;Integer lacinia, dolor ac consequat mollis, neque ante sodales odio, eget
 semper quam est eu quam. Quisque et nisl sit amet urna condimentum gravida.
-Nam euismod ante at orci blandit pharetra.&lt;/p&gt;</description><category domain="http://inky.github.com/pilcrow/">loremipsum</category><category domain="http://inky.github.com/pilcrow/">typography</category><guid isPermaLink="true">http://inky.github.com/pilcrow/2009/lorem-ipsum.html</guid><pubDate>Mon, 07 Dec 2009 21:21:00 GMT</pubDate></item><item><title>What's new in Python 2.6 [2008-10-01]</title><link>http://inky.github.com/pilcrow/2008/whats-new.html</link><description>&lt;p&gt;This article explains the new features in Python 2.6, released on October 1
+Nam euismod ante at orci blandit pharetra.&lt;/p&gt;</description><category domain="http://inky.github.com/pilcrow/">loremipsum</category><category domain="http://inky.github.com/pilcrow/">typography</category><guid isPermaLink="true">http://inky.github.com/pilcrow/2009/lorem-ipsum.html</guid><pubDate>Mon, 07 Dec 2009 21:21:00 GMT</pubDate></item><item><title>What's new in Python 2.6 [2008-10-01]</title><link>http://inky.github.com/pilcrow/2008/whats-new.html</link><description>&lt;p&gt;This article (not &lt;a href="http://inky.github.com/pilcrow/2008/loremipsum.html"&gt;this article&lt;/a&gt;) explains the new features in
+Python 2.6, released on October 1
 2008. The release schedule is described in &lt;a href="http://www.python.org/dev/peps/pep-0361"&gt;PEP 361&lt;/a&gt;.&lt;/p&gt;
 &lt;p&gt;The major theme of Python 2.6 is preparing the migration path to Python 3.0, a
 major redesign of the language. Whenever possible, Python 2.6 incorporates new

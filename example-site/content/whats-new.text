@@ -4,7 +4,8 @@ posted: 2009-12-06 22:44 UTC
 tags: python, lorem ipsum
 
 <summary>
-This article explains the new features in Python 2.6, released on October 1
+This article (not [this article](loremipsum.html)) explains the new features in
+Python 2.6, released on October 1
 2008. The release schedule is described in [PEP 361][pep361].
 
 [pep361]: http://www.python.org/dev/peps/pep-0361

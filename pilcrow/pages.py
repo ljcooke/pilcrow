@@ -6,6 +6,7 @@ Licensed under the terms of the MIT license.
 
 """
 import re
+import urlparse
 from collections import defaultdict
 from datetime import datetime
 from os import path
@@ -92,8 +93,13 @@ class Content(Page):
         if self.backposted():
             title += ' [%s]' % self.date.strftime('%Y-%m-%d')
         tags = [rss2.Category(tag, self._site['home']) for tag in self.tags]
+
+        content = BeautifulSoup(self.content)
+        for link in content.findAll('a'):
+            link['href'] = urlparse.urljoin(self.full_url, link['href'])
+
         return rss2.RSSItem(title=title, link=url, guid=rss2.Guid(url),
-            description=self.content, pubDate=self.posted or self.date,
+            description=str(content), pubDate=self.posted or self.date,
             categories=tags, enclosure=self.get('enclosure', None))
 
 
