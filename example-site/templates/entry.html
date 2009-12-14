@@ -16,7 +16,8 @@ ${content}
 <%def name="footer()">
   <p>
     % if tags:
-      % for i, tag in enumerate(tags.values()):
+      % for i, tag in enumerate(tags_by_name()):
+        ${i and '<span class="sep">|</span>' or ''}
         <a href="${tag.url}">${tag.title}</a>
       % endfor
     % endif

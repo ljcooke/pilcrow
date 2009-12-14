@@ -1,3 +1,5 @@
+@import "_reset";
+
 @background: #222;
 @text: #eee;
 @link: #eb2;
@@ -18,13 +20,45 @@ body {
 }
 
 #header {
-    h1, p { margin-top: 0; }
+    h1, p {
+        font-size: 1.5em;
+        margin-bottom: 1em;
+        text-align: center;
+        text-transform: uppercase;
+        a {
+            font-weight: normal;
+        }
+    }
 }
 
 #footer {
     border-top: 3px solid (@text / 4);
     margin-top: 3em;
     .sep { color: @text / 2; }
+}
+
+h1 {
+    font-size: 1.5em;
+}
+
+h2 {
+    font-size: 1.25em;  line-height: 1.2;
+    font-weight: bold;
+    margin: 1.8em 0 0.6em;
+}
+
+p, dl {
+    margin-bottom: 1.5em;
+}
+
+ul, ol {
+    margin: 0 0 1.5em 1.5em;
+}
+
+blockquote {
+    border-left: 0.25em solid (@background * 1.5);
+    margin: 0 1.5em 1.5em 0.5em;
+    padding-left: 0.75em;
 }
 
 p.time {

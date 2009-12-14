@@ -6,6 +6,7 @@ Licensed under the terms of the MIT license.
 
 """
 import codecs
+import locale
 import os
 import re
 import shutil
@@ -38,7 +39,7 @@ DEFAULT_CONFIG = {
         'deploy': 'deploy',
     },
     'feed': 'feed.rss',
-    'files_exclude': r'(^\.|~$)',
+    'files_exclude': r'^[\._]|~$',
     'files_include': r'^\.htaccess$',
     'files_rename': {
         '.less': '.css',
@@ -97,7 +98,7 @@ class PageDatabase:
         for page in self:
             t = page.template or self._site['default_template']
             template = self.lookup.get_template('%s.html' % t)
-            print '%14s : /%s' % (t, page.id)
+            print('%14s : /%s' % (t, page.id))
 
             vars = dict(self._site, **page)
             if vars['title']:
@@ -117,13 +118,14 @@ class Pilcrow(dict):
         '.less': lambda s, d: util.run_or_die('lessc %s %s' % (s, d)),
     }
 
-    def __init__(self, site_path='.', config_file=DEFAULT_CONFIG_FILE):
+    def __init__(self, site_path, config_file=DEFAULT_CONFIG_FILE):
         try: os.chdir(site_path)
         except OSError: util.die('invalid path:', site_path)
         if not path.exists(config_file):
             util.die('%s not found' % config_file)
 
         dict.__init__(self, DEFAULT_CONFIG)
+        self.update(locale.localeconv())
         with open(config_file) as f:
             for k, v in yaml.load(f).items():
                 k = util.norm_key(k)
@@ -157,13 +159,13 @@ class Pilcrow(dict):
                 if path.isfile(dest) and path.getmtime(src) <= path.getmtime(dest):
                     continue
                 self.FILES_ACTIONS.get(ext, shutil.copy2)(src, dest)
-                print '%s => %s' % (path.relpath(src, base_path), path.relpath(dest, base_path))
+                print('{0} => {1}'.format(path.relpath(src, base_path), path.relpath(dest, base_path)))
         os.chdir(base_path)
 
         db, years = PageDatabase(self), defaultdict(list)
         for root, _, files in os.walk(self['dirs']['content']):
             exts = ['.%s' % ext for ext in self['content_extensions']]
-            for file in filter(lambda f: path.splitext(f)[1] in exts, files):
+            for file in [f for f in files if path.splitext(f)[1] in exts]:
                 with codecs.open(path.join(root, file), 'r', encoding='utf-8') as fp:
                     page = pages.Content(self, fp)
                     db.add(page)
@@ -172,7 +174,7 @@ class Pilcrow(dict):
 
         for year, posts in sorted(years.items()):
             posts = sorted(posts, key=pages.Page.sortkey_origin)
-            db.add(pages.Archive(self, posts, year))
+            db.add(pages.Year(self, posts, year))
             for prevpost, post, nextpost in util.neighbours(posts):
                 post['prevpost'], post['nextpost'] = prevpost, nextpost
 

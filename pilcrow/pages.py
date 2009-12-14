@@ -55,6 +55,7 @@ class Content(Page):
         'summary': lambda s: ''.join(BeautifulSoup(markdown(s)).findAll(text=True)),
     }
     SUMMARY = re.compile('(<summary>)(.*?)(</summary>)', re.DOTALL)
+
     backposted = lambda self: self.posted and self.posted.date() > self.date.date()
 
     def __init__(self, site, fp):
@@ -74,6 +75,8 @@ class Content(Page):
                 'month_name': self.date.strftime('%B'),
                 'prevpost': None,
                 'nextpost': None,
+                'tags_by_count': lambda: sorted(self.tags.values(), key=Tag.sortkey_count),
+                'tags_by_name': lambda: sorted(self.tags.values(), key=Tag.sortkey_tag),
             })
         if 'tags' in self._site:
             self['tags'] -= set((tag for tag in self.tags if tag not in self._site['tags']))
@@ -95,7 +98,7 @@ class Content(Page):
 
 
 class Archive(Page):
-    def __init__(self, site, entries, year, month=0):
+    def __init__(self, site, id, entries, year, month, attrs={}):
         id = site.join_url(year, month and '%02d' % month, ext=False)
         Page.__init__(self, site, id, {
             'entries': entries,
@@ -103,6 +106,21 @@ class Archive(Page):
             'month': month,
             'template': 'archive_%s' % (month and 'month' or 'year'),
             'title': month and datetime(year, month, 1).strftime('%B %Y') or year,
+        }, **attrs)
+
+class Month(Archive):
+    def __init__(self, site, entries, year, month):
+        if not (1 <= month <= 12):
+            raise ValueError, 'month must be in the range 1-12'
+        id = site.join_url(year, '%02d' % month, ext=False)
+        Archive.__init__(self, site, id, entries, year, month, {
+            'title': datetime(year, month, 1).strftime('%B %Y'),
+        })
+
+class Year(Archive):
+    def __init__(self, site, entries, year):
+        Archive.__init__(self, site, year, entries, year, 0, {
+            'title': str(year),
         })
 
 

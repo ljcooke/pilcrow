@@ -1,5 +1,9 @@
 <%inherit file="_base.html"/>
 
+% if title:
+<h1>${title}</h1>
+% endif
+
 % for page in pages(tag=tag):
   <h2>
     <a href="${page.url}">${page.title or 'Untitled'}</a>

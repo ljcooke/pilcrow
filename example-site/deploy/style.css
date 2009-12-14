@@ -1,3 +1,42 @@
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, b, cite, code, del, dfn, em, i, img, ins, kbd, q, samp, strike, strong, sub, sup, tt, var, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  font-size: 100%;
+  vertical-align: baseline;
+  background: transparent;
+}
+html { font-size: 100.01%; }
+caption, cite, code, dfn, th, var {
+  font-style: normal;
+  font-weight: normal;
+}
+h1, h2, h3, h4, h5, h6 { font-weight: normal; }
+blockquote, q { quotes: none; }
+blockquote:before {
+  content: '';
+  content: none;
+}
+blockquote:after {
+  content: '';
+  content: none;
+}
+q:before {
+  content: '';
+  content: none;
+}
+q:after {
+  content: '';
+  content: none;
+}
+:focus { outline: 0; }
+ins { text-decoration: underline; }
+del { text-decoration: line-through; }
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
 body {
   background: #161616;
   color: #eeeeee;
@@ -11,13 +50,39 @@ body {
   max-width: 36em;
   padding: 2em 3em;
 }
-#header h1 { margin-top: 0; }
-#header p { margin-top: 0; }
+#header h1 {
+  font-size: 1.5em;
+  margin-bottom: 1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+#header h1 a { font-weight: normal; }
+#header p {
+  font-size: 1.5em;
+  margin-bottom: 1em;
+  text-align: center;
+  text-transform: uppercase;
+}
+#header p a { font-weight: normal; }
 #footer {
   border-top: 3px solid #3b3b3b;
   margin-top: 3em;
 }
 #footer .sep { color: #777777; }
+h1 { font-size: 1.5em; }
+h2 {
+  font-size: 1.25em;
+  line-height: 1.2;
+  font-weight: bold;
+  margin: 1.8em 0 0.6em;
+}
+p, dl { margin-bottom: 1.5em; }
+ul, ol { margin: 0 0 1.5em 1.5em; }
+blockquote {
+  border-left: 0.25em solid #333333;
+  margin: 0 1.5em 1.5em 0.5em;
+  padding-left: 0.75em;
+}
 p.time {
   color: #777777;
   font-size: 0.9em;
